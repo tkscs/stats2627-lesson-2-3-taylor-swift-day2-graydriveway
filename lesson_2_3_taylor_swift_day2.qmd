@@ -1,0 +1,243 @@
+---
+title: "lesson_2_3_taylor_swift_day2"
+format: html
+---
+
+```{r}
+library(tidyverse)
+```
+
+# Question #5
+
+## Step 1: Here's data for the whole population
+
+```{r}
+enjoyment_matrix =
+  matrix(
+    data = c(92, 89, 90, 88, 95, 100, 98, 93, 95, 84,
+             82, 86, 90, 88, 86, 91, 90, 89, 85, 83,
+             80, 74, 80, 67, 81, 82, 76, 77, 74, 65,
+             72, 68, 74, 73, 70, 69, 72, 70, 68, 67,
+             69, 67, 68, 68, 64, 66, 63, 63, 70, 68),
+    nrow = 5,
+    byrow = TRUE,
+    dimnames = list("row" = 1:5, "column" = 1:10)
+  )
+enjoyment_matrix
+```
+
+It's nice to put the data in "long form" where each column is a variable.
+
+```{r}
+enjoyment_data =
+  enjoyment_matrix |> 
+  as_tibble() |>
+  mutate(row = 1:5) |> 
+  pivot_longer(!row, names_to = "column", values_to = "enjoyment") |> 
+  mutate(column = as.integer(column))
+enjoyment_data
+```
+
+Here's the true average enjoyment for the whole VIP section:
+
+```{r}
+true_average = enjoyment_data |> 
+  pull(enjoyment) |> 
+  mean()
+```
+
+## Step 2: Here are the 3 randomized sampling methods from last class
+
+```{r}
+run_SRS = function(i) {
+  simple_random_sample =
+    enjoyment_data |> 
+    sample_n(10)
+  simple_random_sample |> 
+    pull(enjoyment) |> 
+    mean()
+}
+run_stratified_by_col = function(i) {
+  stratified_sample_by_col =
+    enjoyment_data |>
+    ## YOUR CODE HERE (copy-paste from above)
+  group_by(column) |> 
+  sample_n(1)
+  stratified_sample_by_col |> 
+    ## YOUR CODE HERE (copy-paste from above)
+  pull(enjoyment) |> 
+  mean()
+}
+run_stratified_by_row = function(i) {
+  stratified_sample_by_row =
+    enjoyment_data |>
+    group_by(row) |> 
+    sample_n(2)
+  stratified_sample_by_row |> 
+    ## YOUR CODE HERE (copy-paste from above)
+  pull(enjoyment) |> 
+  mean()
+}
+n_experiments = 100
+srs_means = map_dbl(1:n_experiments, run_SRS)
+stratified_by_row_means = map_dbl(1:n_experiments, run_stratified_by_row)
+stratified_by_col_means = map_dbl(1:n_experiments, run_stratified_by_col)
+experiment_results =
+  tibble(
+  "Simple random sample" = srs_means,
+  "Stratified by row" = stratified_by_row_means,
+  "Stratified by column" = stratified_by_col_means
+) |> 
+  pivot_longer(everything(), names_to = "method", values_to = "average_enjoyment")
+experiment_results |> 
+  ggplot(aes(x = average_enjoyment, fill = method)) +
+  geom_histogram(binwidth = 1) +
+  geom_vline(xintercept = true_average, colour = "red") +
+  facet_wrap(vars(method), ncol = 1) +
+  theme(legend.position = "none")
+```
+
+## Step #3: Here are some more sampling methods
+
+### Method #4: Cluster Random Sample (rows as clusters)
+
+Pick all the data from one random row.
+
+```{r}
+row_cluster = sample(1:5, 1)
+cluster_sample_by_row = enjoyment_data |> 
+  filter(row %in% row_cluster)
+cluster_sample_by_row
+```
+
+Calculate the mean for this sample:
+
+```{r}
+cluster_sample_by_row |> 
+  pull(enjoyment) |> 
+  mean()
+```
+
+Make a function for later:
+
+```{r}
+run_cluster_by_row = function(i) {
+  row_cluster = sample(1:5, 1)
+  cluster_sample_by_row = enjoyment_data |> 
+    filter(row %in% row_cluster)
+  cluster_sample_by_row |> 
+    pull(enjoyment) |> 
+    mean()
+}
+```
+
+### Method #5:Cluster Random Sample (columns as clusters)
+
+Randomly select 2 columns and ask everyone in those columns:
+
+```{r}
+col_cluster = sample(1:10, 2)
+cluster_sample_by_col = enjoyment_data |> 
+  filter(column %in% col_cluster)
+cluster_sample_by_col
+```
+
+Calculate the mean for this sample:
+
+```{r}
+cluster_sample_by_col |> 
+  pull(enjoyment) |> 
+  mean()
+```
+
+Make a function for later:
+
+```{r}
+run_cluster_by_col = function(i) {
+  col_cluster = sample(1:10, 2)
+  cluster_sample_by_col = enjoyment_data |> 
+    filter(column %in% col_cluster)
+  cluster_sample_by_col |> 
+    pull(enjoyment) |> 
+    mean()
+}
+```
+
+### Method #6: Systematic Random Sample
+
+This code is confusing. Run everything, but don't worry about it too much!
+
+Randomly sample the starting fan (out of all 50 fans).
+
+```{r}
+starting_fan_number = sample(1:50, 1)
+starting_fan_number
+```
+
+Begin marking every 8th seat until you get to a sample of 10 seats (start back at the beginning if you need to)
+
+```{r}
+systematic_sample_numbers = ((starting_fan_number - 1 + 8*(0:9)) %% 50) + 1
+systematic_sample_numbers
+```
+
+Collect enjoyment levels from those fans.
+
+```{r}
+systematic_sample = enjoyment_data[systematic_sample_numbers,]
+systematic_sample
+```
+
+Calculate the eman enjoyment for those fans.
+
+```{r}
+systematic_sample |> 
+  pull(enjoyment) |> 
+  mean()
+```
+
+Make a function for later:
+
+```{r}
+run_systematic = function(i) {
+  starting_fan_number = sample(1:50, 1)
+  systematic_sample_numbers = ((starting_fan_number - 1 + 8*(0:9)) %% 50) + 1
+  systematic_sample = enjoyment_data[systematic_sample_numbers,]
+  systematic_sample |> 
+    pull(enjoyment) |> 
+    mean()
+}
+```
+
+## Step 2: Run the experiments
+
+```{r}
+cluster_by_row_means = map_dbl(1:n_experiments, run_cluster_by_row)
+cluster_by_col_means = map_dbl(1:n_experiments, run_cluster_by_col)
+systematic_means = map_dbl(1:n_experiments, run_systematic)
+cluster_by_row_means[1:10]
+cluster_by_col_means[1:10]
+systematic_means[1:10]
+```
+
+## Step 3: Graph the results of the experiments
+
+```{r, message=FALSE}
+experiment_results =
+  tibble(
+  "#1 Simple random sample" = srs_means,
+  "#2 Stratified by row" = stratified_by_row_means,
+  "#3 Stratified by column" = stratified_by_col_means,
+  "#4 Cluster by row" = cluster_by_row_means,
+  "#5 Cluster by column" = cluster_by_col_means,
+  "#6 Systematic" = systematic_means
+) |> 
+  pivot_longer(everything(), names_to = "method", values_to = "average_enjoyment")
+
+experiment_results |> 
+  ggplot(aes(x = average_enjoyment, fill = method)) +
+  geom_histogram(binwidth = 1) +
+  geom_vline(xintercept = true_average, colour = "red") +
+  facet_wrap(vars(method), ncol = 2) +
+  theme(legend.position = "none")
+```
